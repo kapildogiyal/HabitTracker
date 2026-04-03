@@ -8,12 +8,59 @@ import { getTodayString } from '../utils/dateUtils.js';
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+const fallbackMotivations = [
+  {
+    quote: 'The only way to do great work is to love what you do.',
+    author: 'Steve Jobs',
+    funnyReminder: 'Your habits are missing you more than your ex does. Get back to work!',
+    suggestion: 'Try breaking your biggest task into 5-minute chunks to get started.',
+  },
+  {
+    quote: 'Success is the sum of small efforts repeated day in and day out.',
+    author: 'Robert Collier',
+    funnyReminder: 'Your to-do list did not disappear. It is just silently judging you.',
+    suggestion: 'Pick one tiny habit and complete it right now to build momentum.',
+  },
+  {
+    quote: 'It always seems impossible until it is done.',
+    author: 'Nelson Mandela',
+    funnyReminder: 'The procrastination Olympics are over. Time to win something real.',
+    suggestion: 'Start with the easiest pending task, then move to the hardest one.',
+  },
+];
+
+const pickFallbackMotivation = () =>
+  fallbackMotivations[Math.floor(Math.random() * fallbackMotivations.length)];
+
+const pickFallbackAvoidingQuote = (quoteToAvoid = '') => {
+  if (!quoteToAvoid) return pickFallbackMotivation();
+  const filtered = fallbackMotivations.filter((item) => item.quote !== quoteToAvoid);
+  const pool = filtered.length ? filtered : fallbackMotivations;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
+const parseMotivationJson = (text) => {
+  const cleaned = text.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) throw error;
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+};
+
 // @desc    Generate AI motivation
 // @route   GET /api/motivation/generate
 export const generateMotivation = async (req, res, next) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
     const userId = req.user.id;
+    const previousQuote = String(req.query.previousQuote || '');
     const today = getTodayString();
+    const creativitySeed = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     
     // Fetch user context
     const [user, habits, tasks, todayLogs] = await Promise.all([
@@ -43,17 +90,21 @@ export const generateMotivation = async (req, res, next) => {
     };
 
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+      const fallback = pickFallbackAvoidingQuote(previousQuote);
       return res.json({
          success: true,
-         quote: "The only way to do great work is to love what you do.",
-         author: "Steve Jobs",
-         funnyReminder: "Your habits are missing you more than your ex does. Get back to work!",
-         suggestion: "Try breaking your biggest task into 5-minute chunks to get started.",
+         ...fallback,
          isFallback: true
       });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 1,
+        topP: 0.95,
+      },
+    });
 
     const prompt = `
       You are a high-energy, witty, and slightly sarcastic productivity coach for a habit tracker app.
@@ -64,12 +115,18 @@ export const generateMotivation = async (req, res, next) => {
       - Today's Task Completions: ${context.taskCompletions}
       - Skipped habits: ${context.skippedHabits.join(', ') || 'None'}
       - Overall Streak: ${context.streak}
+      - Creativity Seed: ${creativitySeed}
 
       Provide a response in strict JSON format with the following fields:
       - quote: A powerful, short motivational quote.
       - author: The author of the quote.
       - funnyReminder: A witty, slightly roast-y, or funny reminder about their progress or skipped habits.
       - suggestion: One smart, actionable productivity hack based on their current state.
+
+      Important:
+      - Use the creativity seed to vary the response on each refresh.
+      - Do not repeat the exact same quote/reminder/suggestion every time.
+      - Previous quote to avoid repeating: ${previousQuote || 'None'}
 
       JSON Response:
     `;
@@ -78,9 +135,13 @@ export const generateMotivation = async (req, res, next) => {
     const response = await result.response;
     const text = response.text();
     
-    // Clean JSON from markdown if present
-    const cleanJson = text.replace(/```json|```/g, '').trim();
-    const motivation = JSON.parse(cleanJson);
+    let motivation = parseMotivationJson(text);
+    if (previousQuote && motivation?.quote === previousQuote) {
+      const fallback = pickFallbackAvoidingQuote(previousQuote);
+      motivation = {
+        ...fallback,
+      };
+    }
 
     res.json({
       success: true,
@@ -90,12 +151,11 @@ export const generateMotivation = async (req, res, next) => {
 
   } catch (error) {
     console.error('Gemini Motivation Error:', error);
+    const previousQuote = String(req.query.previousQuote || '');
+    const fallback = pickFallbackAvoidingQuote(previousQuote);
     res.json({
        success: true,
-       quote: "Success is not final, failure is not fatal: it is the courage to continue that counts.",
-       author: "Winston Churchill",
-       funnyReminder: "I tried to generate a funny roast but I'm having a mid-life crisis. Just do your habits, okay?",
-       suggestion: "Consistency is better than intensity. Just show up.",
+       ...fallback,
        isFallback: true
     });
   }

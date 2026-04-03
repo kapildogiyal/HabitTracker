@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
 import connectDB from './src/config/db.js';
 import authRoutes from './src/routes/authRoutes.js';
 import habitRoutes from './src/routes/habitRoutes.js';
@@ -20,6 +21,7 @@ import { startNotificationScheduler } from './src/services/notificationScheduler
 import cron from 'node-cron';
 import { errorHandler } from './src/middleware/errorHandler.js';
 
+dotenv.config({ path: fileURLToPath(new URL('./.env', import.meta.url)) });
 dotenv.config();
 
 const app = express();

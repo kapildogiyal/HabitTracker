@@ -1,20 +1,29 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Mail, Lock, User as UserIcon, AlertCircle } from 'lucide-react';
-import useAuthStore from '../../store/authStore';
+import { useDispatch, useSelector } from 'react-redux';
+import { setCredentials, selectIsAuthenticated } from '../../store/slices/authSlice';
+import { useLoginMutation, useRegisterMutation } from '../../store/api/authApi';
 import useThemeStore from '../../store/themeStore';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 
 export default function Auth() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const { isDark } = useThemeStore();
+
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [error, setError] = useState('');
   
-  const { login, register, isLoading, isAuthenticated } = useAuthStore();
-  const { isDark } = useThemeStore();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [login, { isLoading: isLoggingIn }] = useLoginMutation();
+  const [register, { isLoading: isRegistering }] = useRegisterMutation();
+
+  const isLoading = isLoggingIn || isRegistering;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -26,15 +35,29 @@ export default function Auth() {
     e.preventDefault();
     setError('');
     
-    let res;
-    if (isLogin) {
-      res = await login(formData.email, formData.password);
-    } else {
-      res = await register(formData.name, formData.email, formData.password); // Updated to use name instead of username to match new schema
-    }
+    try {
+      let result;
+      if (isLogin) {
+        result = await login({ email: formData.email, password: formData.password }).unwrap();
+      } else {
+        result = await register({ 
+          name: formData.name, 
+          email: formData.email, 
+          password: formData.password 
+        }).unwrap();
+      }
 
-    if (!res.success) {
-      setError(res.message);
+      if (result.token) {
+        dispatch(setCredentials({ 
+          user: result.user, 
+          token: result.token 
+        }));
+        toast.success(isLogin ? 'Welcome back!' : 'Account created. Welcome!');
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError(err?.data?.message || 'Sign in failed. Please check your email and password.');
+      toast.error('Sign in failed');
     }
   };
 
@@ -45,38 +68,42 @@ export default function Auth() {
   };
 
   return (
-    <div className={clsx('min-h-screen flex items-center justify-center p-4 transition-colors duration-300 relative overflow-hidden', isDark ? 'bg-[#0f0d1a]' : 'bg-gray-50')}>
+    <div className={clsx('min-h-screen flex items-center justify-center p-4 transition-colors duration-300 relative overflow-hidden', isDark ? 'bg-[#0a0910]' : 'bg-gray-50')}>
       {/* Background decoration */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-violet-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-violet-600/10 rounded-full blur-[140px] pointer-events-none animate-pulse" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none animate-pulse" style={{ animationDelay: '2s' }} />
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.95, y: 30 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
         className={clsx(
-          'w-full max-w-md p-8 sm:p-10 rounded-3xl shadow-2xl relative z-10 border',
-          isDark ? 'bg-[#1a1628]/80 backdrop-blur-xl border-white/5 shadow-black/50' : 'bg-white/80 backdrop-blur-xl border-gray-200 shadow-xl'
+          'w-full max-w-md p-6 sm:p-10 md:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-2xl relative z-10 glass-card group',
+          isDark ? 'shadow-black/50' : 'shadow-violet-500/10'
         )}
       >
-        <div className="text-center mb-8">
-          <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 items-center justify-center mb-4 shadow-lg shadow-violet-500/25">
-            <Flame className="w-8 h-8 text-white" />
-          </div>
-          <h1 className={clsx('text-2xl font-bold tracking-tight mb-2', isDark ? 'text-white' : 'text-gray-900')}>
-            Welcome to HabitTrack
+        <div className="text-center mb-10">
+          <motion.div 
+            whileHover={{ rotate: 180, scale: 1.1 }}
+            transition={{ type: 'spring', stiffness: 200 }}
+            className="inline-flex w-20 h-20 rounded-[2rem] bg-gradient-main items-center justify-center mb-6 shadow-xl shadow-violet-500/30"
+          >
+            <Flame className="w-10 h-10 text-white" />
+          </motion.div>
+          <h1 className={clsx('text-3xl font-black tracking-tight mb-3', isDark ? 'text-white' : 'text-gray-900')}>
+            HabitTrack <span className="text-violet-500">v2</span>
           </h1>
-          <p className={clsx('text-sm', isDark ? 'text-gray-400' : 'text-gray-500')}>
-            {isLogin ? 'Log in to continue your journey.' : 'Create an account to level up your life.'}
+          <p className={clsx('text-xs font-black uppercase tracking-[0.3em] opacity-40', isDark ? 'text-gray-400' : 'text-gray-500')}>
+            {isLogin ? 'Sign in' : 'Create account'}
           </p>
         </div>
 
         <AnimatePresence mode="wait">
           {error && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="bg-rose-500/10 text-rose-500 p-3 rounded-xl mb-6 text-sm flex items-center gap-2 border border-rose-500/20"
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10 }}
+              className="bg-rose-500/10 text-rose-500 p-4 rounded-[1.5rem] mb-8 text-[11px] font-black uppercase tracking-widest flex items-center gap-3 border border-rose-500/20"
             >
               <AlertCircle className="w-4 h-4 shrink-0" />
               <p>{error}</p>
@@ -84,26 +111,26 @@ export default function Auth() {
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <AnimatePresence mode="wait">
             {!isLogin && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
                 className="overflow-hidden"
               >
-                <div className="relative">
-                  <UserIcon className={clsx('absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5', isDark ? 'text-gray-500' : 'text-gray-400')} />
+                <div className="relative group/input">
+                  <UserIcon className={clsx('absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors', isDark ? 'text-gray-500 group-focus-within/input:text-violet-500' : 'text-gray-400 group-focus-within/input:text-violet-500')} />
                   <input
                     type="text"
                     required={!isLogin}
-                    placeholder="Full Name"
+                    placeholder="Your name"
                     value={formData.name}
                     onChange={e => setFormData(f => ({ ...f, name: e.target.value }))}
                     className={clsx(
-                      'w-full pl-12 pr-4 py-3.5 rounded-xl text-sm border outline-none transition-all',
-                      isDark ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-violet-500 focus:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-violet-500 focus:bg-white'
+                      'w-full pl-14 pr-6 py-4.5 rounded-2xl text-sm font-bold border outline-none transition-all',
+                      isDark ? 'bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-violet-500 focus:bg-white/10' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-violet-500 focus:bg-white'
                     )}
                   />
                 </div>
@@ -111,8 +138,8 @@ export default function Auth() {
             )}
           </AnimatePresence>
 
-          <div className="relative">
-            <Mail className={clsx('absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5', isDark ? 'text-gray-500' : 'text-gray-400')} />
+          <div className="relative group/input">
+            <Mail className={clsx('absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors', isDark ? 'text-gray-500 group-focus-within/input:text-violet-500' : 'text-gray-400 group-focus-within/input:text-violet-500')} />
             <input
               type="email"
               required
@@ -120,14 +147,14 @@ export default function Auth() {
               value={formData.email}
               onChange={e => setFormData(f => ({ ...f, email: e.target.value }))}
               className={clsx(
-                'w-full pl-12 pr-4 py-3.5 rounded-xl text-sm border outline-none transition-all',
-                isDark ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-violet-500 focus:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-violet-500 focus:bg-white'
+                'w-full pl-14 pr-6 py-4.5 rounded-2xl text-sm font-bold border outline-none transition-all',
+                isDark ? 'bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-violet-500 focus:bg-white/10' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-violet-500 focus:bg-white'
               )}
             />
           </div>
 
-          <div className="relative">
-            <Lock className={clsx('absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5', isDark ? 'text-gray-500' : 'text-gray-400')} />
+          <div className="relative group/input">
+            <Lock className={clsx('absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors', isDark ? 'text-gray-500 group-focus-within/input:text-violet-500' : 'text-gray-400 group-focus-within/input:text-violet-500')} />
             <input
               type="password"
               required
@@ -135,31 +162,34 @@ export default function Auth() {
               value={formData.password}
               onChange={e => setFormData(f => ({ ...f, password: e.target.value }))}
               className={clsx(
-                'w-full pl-12 pr-4 py-3.5 rounded-xl text-sm border outline-none transition-all',
-                isDark ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-violet-500 focus:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-violet-500 focus:bg-white'
+                'w-full pl-14 pr-6 py-4.5 rounded-2xl text-sm font-bold border outline-none transition-all',
+                isDark ? 'bg-white/5 border-white/10 text-white placeholder-gray-600 focus:border-violet-500 focus:bg-white/10' : 'bg-gray-50 border-gray-100 text-gray-900 focus:border-violet-500 focus:bg-white'
               )}
             />
           </div>
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 text-white font-semibold shadow-lg shadow-violet-500/25 mt-6 disabled:opacity-75"
+            className="btn-primary w-full py-5 mt-10 relative overflow-hidden group/btn"
           >
-            {isLoading ? 'Processing...' : isLogin ? 'Log In' : 'Create Account'}
+            <div className="absolute inset-0 bg-shimmer" />
+            <span className="relative z-10">
+               {isLoading ? 'Please wait...' : isLogin ? 'Sign in' : 'Create account'}
+            </span>
           </motion.button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className={clsx('text-sm', isDark ? 'text-gray-400' : 'text-gray-600')}>
+        <div className="mt-10 text-center">
+          <p className={clsx('text-[11px] font-black uppercase tracking-[0.2em]', isDark ? 'text-gray-500' : 'text-gray-400')}>
             {isLogin ? "Don't have an account?" : 'Already have an account?'}
             <button
               onClick={toggleMode}
-              className="ml-2 font-semibold text-violet-500 hover:text-violet-400 hover:underline"
+              className="ml-3 font-black text-violet-500 hover:text-violet-400 hover:underline transition-all"
             >
-              {isLogin ? 'Sign up' : 'Log in'}
+              {isLogin ? 'Sign up' : 'Sign in'}
             </button>
           </p>
         </div>

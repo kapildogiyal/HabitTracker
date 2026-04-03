@@ -21,6 +21,9 @@ const taskSchema = new mongoose.Schema({
   endTime: {
     type: Date,
   },
+  dueDate: {
+    type: Date,
+  },
   duration: {
     type: Number, // user-defined target duration in minutes
   },

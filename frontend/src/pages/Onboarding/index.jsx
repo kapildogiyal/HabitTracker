@@ -1,446 +1,354 @@
-import { useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Rocket, 
+  Target, 
+  Clock, 
+  Zap, 
+  CheckCircle2, 
+  ChevronRight, 
+  ChevronLeft, 
+  Award,
+  Flame,
+  Shield,
+  Sparkles,
+  Check
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Sparkles, Calendar, Sunrise, Moon, Target, ListChecks } from 'lucide-react';
+import { useDispatch } from 'react-redux';
+import { useSubmitOnboardingMutation, useGetOnboardingStatusQuery } from '../../store/api/onboardingApi';
+import { setOnboarding } from '../../store/slices/authSlice';
+import useThemeStore from '../../store/themeStore';
+import Loader from '../../components/ui/Loader';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
-import useThemeStore from '../../store/themeStore';
-import useAuthStore from '../../store/authStore';
-import { onboardingAPI } from '../../api/endpoints';
 
-const goalOptions = ['Get Fit', 'Study More', 'Be Productive', 'Build Habits', 'Custom'];
-const motivationOptions = ['Funny', 'Motivational', 'Strict', 'Friendly'];
-const habitOptions = ['Drink Water', 'Workout', 'Reading', 'Meditation', 'Journaling'];
+const steps = [
+  {
+    id: 'intro',
+    title: 'Welcome',
+    description: 'Set up your goals, habits, and best time to work.',
+    icon: Rocket,
+  },
+  {
+    id: 'goals',
+    title: 'Your Goals',
+    description: 'What do you want to improve right now?',
+    icon: Target,
+  },
+  {
+    id: 'habits',
+    title: 'Your Habits',
+    description: 'Pick the daily habits you want to build.',
+    icon: Flame,
+  },
+  {
+    id: 'schedule',
+    title: 'Best Time',
+    description: 'Choose when you usually feel most focused.',
+    icon: Clock,
+  },
+  {
+    id: 'finalize',
+    title: 'Ready to Start',
+    description: 'Review your setup and open your dashboard.',
+    icon: Zap,
+  }
+];
 
-const stepIcons = [Target, Sunrise, Sparkles, Calendar, ListChecks];
+const goalOptions = [
+  { id: 'health', label: 'Health', icon: Shield, color: 'bg-emerald-500' },
+  { id: 'productivity', label: 'Productivity', icon: Zap, color: 'bg-amber-500' },
+  { id: 'learning', label: 'Learning', icon: Sparkles, color: 'bg-cyan-500' },
+  { id: 'mental', label: 'Mental wellness', icon: Shield, color: 'bg-violet-500' },
+];
 
 export default function Onboarding() {
   const { isDark } = useThemeStore();
-  const { setOnboardingRequired } = useAuthStore();
   const navigate = useNavigate();
-
-  const [step, setStep] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
-  const [customGoal, setCustomGoal] = useState('');
-  const [form, setForm] = useState({
-    goal: [],
-    wakeUpTime: '',
-    sleepTime: '',
-    motivationType: [],
-    birthday: '',
-    selectedHabits: [],
+  const dispatch = useDispatch();
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState({
+    goals: [],
+    habits: [],
+    schedule: 'morning',
+    intensity: 'standard'
   });
 
-  const totalSteps = 5;
-  const progress = useMemo(() => Math.round(((step + 1) / totalSteps) * 100), [step]);
+  const [submitOnboarding, { isLoading: isSubmitting }] = useSubmitOnboardingMutation();
+  const { data: status, isLoading: isLoadingStatus } = useGetOnboardingStatusQuery();
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, totalSteps - 1));
-  const prevStep = () => setStep((s) => Math.max(s - 1, 0));
+  useEffect(() => {
+    if (status && !status.required) {
+       navigate('/dashboard', { replace: true });
+    }
+  }, [status, navigate]);
 
-  const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const buildOnboardingPayload = () => {
+    const scheduleMap = {
+      morning: { wakeUpTime: '06:30', sleepTime: '22:30' },
+      afternoon: { wakeUpTime: '08:00', sleepTime: '23:30' },
+      evening: { wakeUpTime: '09:30', sleepTime: '00:30' },
+    };
+    const motivationMap = {
+      gentle: ['supportive'],
+      standard: ['supportive'],
+      intense: ['strict'],
+    };
+    const scheduleDefaults = scheduleMap[formData.schedule] || scheduleMap.morning;
 
-  const toggleField = (key, value) => {
-    setForm((prev) => {
-      const current = prev[key];
-      const exists = current.includes(value);
-      return {
-        ...prev,
-        [key]: exists
-          ? current.filter((v) => v !== value)
-          : [...current, value],
-      };
-    });
-  };
-
-  const toggleHabit = (habit) => toggleField('selectedHabits', habit);
-
-  const validateStep = () => {
-    if (step === 0) {
-      if (form.goal.length === 0) {
-        toast.error('Pick at least one goal');
-        return false;
-      }
-      if (form.goal.includes('Custom') && !customGoal.trim()) {
-        toast.error('Write your custom goal');
-        return false;
-      }
-      return true;
-    }
-    if (step === 1) {
-      if (!form.wakeUpTime || !form.sleepTime) {
-        toast.error('Add wake up and sleep times');
-        return false;
-      }
-      return true;
-    }
-    if (step === 2) {
-      if (form.motivationType.length === 0) {
-        toast.error('Pick at least one reminder style');
-        return false;
-      }
-      return true;
-    }
-    if (step === 3) {
-      if (!form.birthday) {
-        toast.error('Add your birthday');
-        toast.error('Add your birthday');
-        return false;
-      }
-      return true;
-    }
-    if (step === 4) {
-      if (form.selectedHabits.length === 0) {
-        toast.error('Pick at least one habit');
-        return false;
-      }
-      return true;
-    }
-    return true;
+    return {
+      goal: formData.goals,
+      selectedHabits: formData.habits,
+      motivationType: motivationMap[formData.intensity] || ['supportive'],
+      wakeUpTime: scheduleDefaults.wakeUpTime,
+      sleepTime: scheduleDefaults.sleepTime,
+      birthday: '2000-01-01',
+    };
   };
 
   const handleNext = () => {
-    if (!validateStep()) return;
-    nextStep();
-  };
-
-  const handleSubmit = async () => {
-    if (!validateStep()) return;
-    setIsSaving(true);
-    try {
-      const processedGoals = form.goal.map(g => g === 'Custom' ? customGoal.trim() : g);
-      const payload = {
-        ...form,
-        goal: processedGoals,
-      };
-      await onboardingAPI.submit(payload);
-      setOnboardingRequired(false);
-      toast.success('Onboarding complete');
-      navigate('/dashboard', { replace: true });
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save onboarding');
-    } finally {
-      setIsSaving(false);
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(curr => curr + 1);
+    } else {
+      handleComplete();
     }
   };
 
-  const StepIcon = stepIcons[step];
+  const handleBack = () => {
+    if (currentStep > 0) setCurrentStep(curr => curr - 1);
+  };
+
+  const handleComplete = async () => {
+    try {
+      await submitOnboarding(buildOnboardingPayload()).unwrap();
+      dispatch(setOnboarding(false));
+      toast.success('Setup complete. Welcome!');
+      navigate('/dashboard', { replace: true });
+    } catch (error) {
+      toast.error('Setup failed. Please try again.');
+    }
+  };
+
+  const toggleGoal = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      goals: prev.goals.includes(id) 
+        ? prev.goals.filter(g => g !== id)
+        : [...prev.goals, id]
+    }));
+  };
+
+  if (isLoadingStatus) return <Loader />;
 
   return (
-    <div className={clsx('min-h-screen relative overflow-hidden', isDark ? 'bg-[#0b0a12]' : 'bg-gray-50')}>
-      <div className="absolute -top-40 -left-40 w-[520px] h-[520px] bg-gradient-to-br from-rose-500/30 via-amber-400/20 to-transparent blur-[120px]" />
-      <div className="absolute -bottom-40 -right-32 w-[520px] h-[520px] bg-gradient-to-br from-cyan-500/20 via-violet-500/20 to-transparent blur-[130px]" />
+    <div className={clsx('min-h-screen flex items-center justify-center p-3 sm:p-4 transition-colors relative overflow-hidden', isDark ? 'bg-[#0a0910]' : 'bg-gray-50')}>
+      {/* Immersive Background */}
+      <div className="absolute inset-0 mesh-gradient opacity-10 animate-pulse pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-violet-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-16">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className={clsx(
-            'grid grid-cols-1 lg:grid-cols-[1.1fr_1.4fr] gap-10 rounded-[36px] border shadow-2xl overflow-hidden',
-            isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'
-          )}
-        >
-          <div className={clsx('p-10 lg:p-12 relative', isDark ? 'bg-black/20' : 'bg-gradient-to-br from-violet-50 via-white to-cyan-50')}>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-violet-500/30">
-                <StepIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <p className={clsx('text-xs font-black uppercase tracking-[0.3em]', isDark ? 'text-violet-300' : 'text-violet-500')}>Onboarding</p>
-                <h1 className={clsx('text-3xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Level up your routine</h1>
-              </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 30 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className={clsx(
+          'w-full max-w-4xl p-4 sm:p-10 md:p-16 rounded-[1.5rem] sm:rounded-[3rem] md:rounded-[4rem] shadow-2xl glass-card relative z-10 flex flex-col items-center justify-center text-center space-y-6 sm:space-y-12',
+          isDark ? 'shadow-black/50' : 'shadow-violet-500/10'
+        )}
+      >
+        {/* Progress Bar */}
+        <div className="w-full max-w-md flex items-center justify-between relative mb-4 sm:mb-8">
+           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-white/5 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-main"
+                initial={{ width: 0 }}
+                animate={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+              />
+           </div>
+           {steps.map((s, idx) => (
+             <div 
+               key={idx}
+               className={clsx(
+                 'w-10 h-10 rounded-[1.2rem] flex items-center justify-center relative z-10 transition-all duration-500 border-4',
+                 idx <= currentStep 
+                   ? 'bg-gradient-main text-white border-transparent' 
+                   : isDark ? 'bg-[#151221] border-[#2d2545] text-gray-600' : 'bg-white border-gray-100 text-gray-300'
+               )}
+             >
+                {idx < currentStep ? <Check className="w-5 h-5 stroke-[4]" /> : <span className="text-xs font-black">{idx + 1}</span>}
+             </div>
+           ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="w-full space-y-12"
+          >
+            <div className="space-y-3 sm:space-y-4">
+               <motion.div
+                 initial={{ scale: 0 }}
+                 animate={{ scale: 1 }}
+                 className="inline-flex w-16 h-16 sm:w-24 sm:h-24 rounded-[1.2rem] sm:rounded-[2.5rem] bg-gradient-main items-center justify-center mb-3 sm:mb-6 shadow-2xl shadow-violet-500/30"
+               >
+                 {(() => {
+                    const Icon = steps[currentStep].icon;
+                    return <Icon className="w-8 h-8 sm:w-12 sm:h-12 text-white" />;
+                 })()}
+               </motion.div>
+               <h2 className={clsx('text-2xl sm:text-4xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>
+                 {steps[currentStep].title}
+               </h2>
+               <p className={clsx('text-sm sm:text-base font-bold opacity-50 max-w-lg mx-auto', isDark ? 'text-gray-300' : 'text-gray-600')}>
+                 {steps[currentStep].description}
+               </p>
             </div>
 
-            <div className="mt-10">
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className={clsx(isDark ? 'text-gray-400' : 'text-gray-500')}>Progress</span>
-                <span className={clsx('font-black', isDark ? 'text-white' : 'text-gray-900')}>{progress}%</span>
-              </div>
-              <div className={clsx('mt-3 h-2 rounded-full overflow-hidden', isDark ? 'bg-white/10' : 'bg-gray-100')}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.6 }}
-                  className="h-full bg-gradient-to-r from-violet-500 via-indigo-500 to-cyan-500"
-                />
-              </div>
-            </div>
+            {/* Step Content */}
+            <div className="max-w-2xl mx-auto">
+               {currentStep === 0 && (
+                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+                    <p className="text-xs font-black uppercase tracking-[0.4em] opacity-40">Ready to begin</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] glass-card border border-white/5 space-y-3 sm:space-y-4">
+                          <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                          <p className="font-bold text-sm">Account ready</p>
+                       </div>
+                       <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] glass-card border border-white/5 space-y-3 sm:space-y-4">
+                          <Rocket className="w-8 h-8 text-cyan-500 mx-auto animate-bounce" />
+                          <p className="font-bold text-sm">Setup in progress</p>
+                       </div>
+                    </div>
+                 </motion.div>
+               )}
 
-            <div className="mt-8 space-y-4">
-              {['Goal Selection', 'Daily Routine', 'Motivation Style', 'Birthday', 'Habit Suggestions'].map((label, index) => (
-                <div key={label} className="flex items-center gap-3">
-                  <div
-                    className={clsx(
-                      'w-9 h-9 rounded-xl flex items-center justify-center border',
-                      index <= step
-                        ? 'bg-gradient-to-br from-violet-500 to-indigo-500 text-white border-transparent shadow-lg shadow-violet-500/30'
-                        : isDark
-                          ? 'border-white/10 text-gray-500'
-                          : 'border-gray-200 text-gray-400'
-                    )}
-                  >
-                    {index < step ? <Check className="w-4 h-4" /> : <span className="text-xs font-bold">0{index + 1}</span>}
-                  </div>
-                  <div>
-                    <p className={clsx('text-sm font-semibold', isDark ? 'text-gray-200' : 'text-gray-800')}>{label}</p>
-                    <p className={clsx('text-xs', isDark ? 'text-gray-500' : 'text-gray-400')}>Step {index + 1} of {totalSteps}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-10 lg:p-12">
-            <AnimatePresence mode="wait">
-              {step === 0 && (
-                <motion.div
-                  key="step-goal"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={clsx('text-2xl font-black', isDark ? 'text-white' : 'text-gray-900')}>What is your main goal?</h2>
-                    <p className={clsx('text-sm mt-2', isDark ? 'text-gray-400' : 'text-gray-500')}>Pick a direction and we will tailor your experience.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {goalOptions.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => toggleField('goal', option)}
+               {currentStep === 1 && (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    {goalOptions.map((goal) => (
+                      <motion.button
+                        key={goal.id}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => toggleGoal(goal.id)}
                         className={clsx(
-                          'px-5 py-4 rounded-2xl border text-left font-semibold transition-all flex items-center justify-between',
-                          form.goal.includes(option)
-                            ? 'border-transparent bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-lg shadow-violet-500/30'
-                            : isDark
-                              ? 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-violet-200'
+                          'p-6 sm:p-10 rounded-[1.8rem] sm:rounded-[3rem] border-2 transition-all flex flex-col items-center gap-4 sm:gap-6 group',
+                          formData.goals.includes(goal.id)
+                            ? 'bg-gradient-main border-transparent text-white shadow-2xl shadow-violet-500/30'
+                            : isDark ? 'bg-white/5 border-white/5 text-gray-500 hover:bg-white/[0.08]' : 'bg-gray-50 border-gray-100 text-gray-400 hover:bg-white'
                         )}
                       >
-                        <span>{option}</span>
-                        {form.goal.includes(option) && <Check className="w-4 h-4 ml-2" />}
-                      </button>
+                         <goal.icon className={clsx('w-8 h-8 sm:w-10 sm:h-10 transition-transform group-hover:scale-110', formData.goals.includes(goal.id) ? 'text-white' : 'text-violet-500')} />
+                         <span className="text-xs font-black uppercase tracking-widest leading-relaxed">{goal.label}</span>
+                      </motion.button>
                     ))}
-                  </div>
-                  {form.goal.includes('Custom') && (
-                    <div>
-                      <label className={clsx('text-xs font-black uppercase tracking-widest', isDark ? 'text-gray-400' : 'text-gray-500')}>Custom Goal</label>
-                      <input
-                        type="text"
-                        value={customGoal}
-                        onChange={(e) => setCustomGoal(e.target.value)}
-                        placeholder="Describe your goal"
-                        className={clsx(
-                          'mt-2 w-full px-4 py-3 rounded-2xl border text-sm outline-none transition-all',
-                          isDark
-                            ? 'bg-white/5 border-white/10 text-white focus:border-violet-500'
-                            : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-violet-400'
-                        )}
-                      />
+                 </div>
+               )}
+
+               {currentStep === 2 && (
+                 <div className="space-y-8">
+                    <div className="space-y-4">
+                       <label className="text-[10px] font-black uppercase tracking-widest opacity-40">Suggested habits</label>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {['Deep Work', 'Hydration', 'Meditation', 'Reflection', 'Exercise'].map(h => (
+                            <button
+                              key={h}
+                              onClick={() => setFormData(p => ({
+                                ...p,
+                                habits: p.habits.includes(h) ? p.habits.filter(i => i !== h) : [...p.habits, h]
+                              }))}
+                              className={clsx(
+                                'px-8 py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest border-2 transition-all',
+                                formData.habits.includes(h)
+                                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 border-transparent text-white'
+                                  : isDark ? 'bg-white/5 border-white/5 text-gray-500' : 'bg-gray-50 border-gray-100 text-gray-400'
+                              )}
+                            >
+                               {h}
+                            </button>
+                          ))}
+                       </div>
                     </div>
-                  )}
-                </motion.div>
-              )}
+                 </div>
+               )}
 
-              {step === 1 && (
-                <motion.div
-                  key="step-routine"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={clsx('text-2xl font-black', isDark ? 'text-white' : 'text-gray-900')}>Define your daily rhythm</h2>
-                    <p className={clsx('text-sm mt-2', isDark ? 'text-gray-400' : 'text-gray-500')}>We will schedule reminders around your day.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={clsx('text-xs font-black uppercase tracking-widest', isDark ? 'text-gray-400' : 'text-gray-500')}>Wake up time</label>
-                      <div className="relative">
-                        <Sunrise className={clsx('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-400')} />
-                        <input
-                          type="time"
-                          value={form.wakeUpTime}
-                          onChange={(e) => updateField('wakeUpTime', e.target.value)}
-                          className={clsx(
-                            'mt-2 w-full pl-10 pr-4 py-3 rounded-2xl border text-sm outline-none',
-                            isDark
-                              ? 'bg-white/5 border-white/10 text-white focus:border-emerald-400'
-                              : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-emerald-300'
-                          )}
-                        />
-                      </div>
+               {currentStep === 3 && (
+                 <div className="space-y-12">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                       {[
+                         { id: 'morning', label: 'Morning', time: '05:00 - 09:00' },
+                         { id: 'afternoon', label: 'Afternoon', time: '12:00 - 16:00' },
+                         { id: 'evening', label: 'Evening', time: '20:00 - 00:00' }
+                       ].map(t => (
+                         <button
+                           key={t.id}
+                           onClick={() => setFormData(p => ({ ...p, schedule: t.id }))}
+                           className={clsx(
+                             'p-8 rounded-[2.5rem] border-2 transition-all space-y-4',
+                             formData.schedule === t.id
+                               ? 'bg-gradient-to-br from-cyan-500 to-blue-600 border-transparent text-white'
+                               : isDark ? 'bg-white/5 border-white/5 text-gray-500' : 'bg-gray-50 border-gray-100 text-gray-400'
+                           )}
+                         >
+                            <p className="text-xs font-black uppercase tracking-widest">{t.label}</p>
+                            <p className="text-[10px] opacity-60">{t.time}</p>
+                         </button>
+                       ))}
                     </div>
-                    <div>
-                      <label className={clsx('text-xs font-black uppercase tracking-widest', isDark ? 'text-gray-400' : 'text-gray-500')}>Sleep time</label>
-                      <div className="relative">
-                        <Moon className={clsx('absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4', isDark ? 'text-gray-500' : 'text-gray-400')} />
-                        <input
-                          type="time"
-                          value={form.sleepTime}
-                          onChange={(e) => updateField('sleepTime', e.target.value)}
-                          className={clsx(
-                            'mt-2 w-full pl-10 pr-4 py-3 rounded-2xl border text-sm outline-none',
-                            isDark
-                              ? 'bg-white/5 border-white/10 text-white focus:border-indigo-400'
-                              : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-indigo-300'
-                          )}
-                        />
-                      </div>
+                 </div>
+               )}
+
+               {currentStep === 4 && (
+                 <div className="space-y-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] glass-card border border-white/5 text-left">
+                          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-500 mb-2">Goals</p>
+                          <p className="font-bold text-sm">{formData.goals.length || 0} goals selected</p>
+                       </div>
+                       <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] glass-card border border-white/5 text-left">
+                          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500 mb-2">Habits</p>
+                          <p className="font-bold text-sm">{formData.habits.length || 0} habits selected</p>
+                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {step === 2 && (
-                <motion.div
-                  key="step-motivation"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={clsx('text-2xl font-black', isDark ? 'text-white' : 'text-gray-900')}>What type of reminders do you prefer?</h2>
-                    <p className={clsx('text-sm mt-2', isDark ? 'text-gray-400' : 'text-gray-500')}>Choose the voice that keeps you consistent.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {motivationOptions.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => toggleField('motivationType', option)}
-                        className={clsx(
-                          'px-5 py-4 rounded-2xl border text-left font-semibold transition-all flex items-center justify-between',
-                          form.motivationType.includes(option)
-                            ? 'border-transparent bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
-                            : isDark
-                              ? 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-200'
-                        )}
-                      >
-                        <span>{option}</span>
-                        {form.motivationType.includes(option) && <Check className="w-4 h-4 ml-2" />}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {step === 3 && (
-                <motion.div
-                  key="step-birthday"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={clsx('text-2xl font-black', isDark ? 'text-white' : 'text-gray-900')}>When is your birthday?</h2>
-                    <p className={clsx('text-sm mt-2', isDark ? 'text-gray-400' : 'text-gray-500')}>We will save it for milestone rewards.</p>
-                  </div>
-                  <div>
-                    <label className={clsx('text-xs font-black uppercase tracking-widest', isDark ? 'text-gray-400' : 'text-gray-500')}>Birthday</label>
-                    <input
-                      type="date"
-                      value={form.birthday}
-                      onChange={(e) => updateField('birthday', e.target.value)}
-                      className={clsx(
-                        'mt-2 w-full px-4 py-3 rounded-2xl border text-sm outline-none transition-all',
-                        isDark
-                          ? 'bg-white/5 border-white/10 text-white focus:border-amber-400'
-                          : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-amber-300'
-                      )}
-                    />
-                  </div>
-                </motion.div>
-              )}
-
-              {step === 4 && (
-                <motion.div
-                  key="step-habits"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.4 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={clsx('text-2xl font-black', isDark ? 'text-white' : 'text-gray-900')}>Pick some habit suggestions</h2>
-                    <p className={clsx('text-sm mt-2', isDark ? 'text-gray-400' : 'text-gray-500')}>Select multiple habits to start strong.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {habitOptions.map((habit) => {
-                      const active = form.selectedHabits.includes(habit);
-                      return (
-                        <button
-                          key={habit}
-                          type="button"
-                          onClick={() => toggleHabit(habit)}
-                          className={clsx(
-                            'px-5 py-4 rounded-2xl border text-left font-semibold transition-all flex items-center justify-between',
-                            active
-                              ? 'border-transparent bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/30'
-                              : isDark
-                                ? 'border-white/10 bg-white/5 text-gray-200 hover:bg-white/10'
-                                : 'border-gray-200 bg-white text-gray-700 hover:border-amber-200'
-                          )}
-                        >
-                          <span>{habit}</span>
-                          {active && <Check className="w-4 h-4" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="mt-10 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={prevStep}
-                disabled={step === 0}
-                className={clsx(
-                  'px-5 py-2.5 rounded-2xl font-semibold transition-all',
-                  step === 0
-                    ? 'opacity-50 cursor-not-allowed'
-                    : isDark
-                      ? 'bg-white/5 text-gray-200 hover:bg-white/10'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                )}
-              >
-                Back
-              </button>
-              {step < totalSteps - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="px-6 py-2.5 rounded-2xl font-semibold text-white bg-gradient-to-r from-violet-500 to-indigo-500 shadow-lg shadow-violet-500/30"
-                >
-                  Continue
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isSaving}
-                  className="px-6 py-2.5 rounded-2xl font-semibold text-white bg-gradient-to-r from-emerald-500 to-teal-500 shadow-lg shadow-emerald-500/30 disabled:opacity-70"
-                >
-                  {isSaving ? 'Saving...' : 'Finish Onboarding'}
-                </button>
-              )}
+                    <div className="p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-gradient-main text-white space-y-2">
+                       <Award className="w-10 h-10 mx-auto mb-4" />
+                       <p className="text-lg font-black tracking-tight">You're ready</p>
+                       <p className="text-xs font-bold opacity-80">Your dashboard will open after setup.</p>
+                    </div>
+                 </div>
+               )}
             </div>
-          </div>
-        </motion.div>
-      </div>
+
+            {/* Navigation */}
+            <div className="flex w-full max-w-md mx-auto flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between pt-6 sm:pt-8">
+               <motion.button
+                 whileHover={{ x: -5 }}
+                 onClick={handleBack}
+                 disabled={currentStep === 0}
+                 className={clsx(
+                   'flex items-center justify-center gap-3 px-5 sm:px-8 py-3 sm:py-4 rounded-[1.2rem] sm:rounded-[2rem] text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] transition-all disabled:opacity-0',
+                   isDark ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-900'
+                 )}
+               >
+                 <ChevronLeft className="w-5 h-5" /> Back
+               </motion.button>
+
+               <motion.button
+                 whileHover={{ scale: 1.05, y: -2 }}
+                 whileTap={{ scale: 0.95 }}
+                 onClick={handleNext}
+                 disabled={isSubmitting}
+                 className="btn-primary w-full sm:w-auto px-6 sm:px-10 py-4 sm:py-5"
+               >
+                 {isSubmitting ? 'Saving...' : currentStep === steps.length - 1 ? 'Start' : 'Next'}
+                 {currentStep < steps.length - 1 && <ChevronRight className="w-5 h-5" />}
+               </motion.button>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }

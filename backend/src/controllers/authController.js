@@ -37,16 +37,21 @@ export const login = async (req, res, next) => {
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-    if (!user.username) {
-      user.username = user.email?.split('@')[0];
+    const username = user.username || user.email?.split('@')[0];
+    const activityUpdate = { lastActiveAt: new Date() };
+    if (!user.username && username) {
+      activityUpdate.username = username;
     }
-    user.lastActiveAt = new Date();
-    await user.save({ validateBeforeSave: false });
+
+    User.updateOne({ _id: user._id }, { $set: activityUpdate }).catch((error) => {
+      console.error('Failed to update lastActiveAt during login:', error);
+    });
+
     const token = generateToken(user._id);
     res.json({
       success: true,
       token,
-      user: { id: user._id, name: user.name, username: user.username, email: user.email, xp: user.xp, streak: user.streak, level: user.level, avatar: user.avatar },
+      user: { id: user._id, name: user.name, username, email: user.email, xp: user.xp, streak: user.streak, level: user.level, avatar: user.avatar },
     });
   } catch (error) {
     next(error);

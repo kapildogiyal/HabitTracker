@@ -1,0 +1,46 @@
+{
+  "name": "HabitTrack - Level Up Your Life",
+  "short_name": "HabitTrack",
+  "description": "Gamified productivity and habit tracking with AI motivation.",
+  "id": "/",
+  "scope": "/",
+  "start_url": "/",
+  "display_override": ["standalone", "minimal-ui"],
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f0d1a",
+  "theme_color": "#8b5cf6",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks",
+      "url": "/tasks",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

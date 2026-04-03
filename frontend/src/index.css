@@ -3,7 +3,7 @@
 @theme {
   --font-sans: 'Outfit', 'Inter', system-ui, sans-serif;
 
-  /* Brand colors - More vibrant */
+  /* Brand colors */
   --color-brand-50: #f5f3ff;
   --color-brand-100: #ede9fe;
   --color-brand-200: #ddd6fe;
@@ -23,23 +23,27 @@
   --color-border-light: #f1f0fb;
   --color-border-dark: #221d35;
 
-  /* Premium Gradients - Multi-stop */
-  --gradient-main: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6366f1 100%);
+  /* Gradients */
+  --gradient-main: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
   --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   --gradient-danger: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
   --gradient-info: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  --gradient-royal: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --gradient-royal: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
   --gradient-morning: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   --gradient-midnight: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
 
-  /* Shadows - Layered for depth */
-  --shadow-premium: 0 10px 30px -5px rgba(139, 92, 246, 0.15), 0 4px 10px -2px rgba(139, 92, 246, 0.05);
-  --shadow-glow-violet: 0 0 20px -5px rgba(139, 92, 246, 0.5);
-  --shadow-glow-emerald: 0 0 20px -5px rgba(16, 185, 129, 0.5);
+  /* Shadows */
+  --shadow-premium: 0 6px 20px -8px rgba(15, 23, 42, 0.25);
+  --shadow-glow-violet: 0 0 0 rgba(139, 92, 246, 0);
+  --shadow-glow-emerald: 0 0 0 rgba(16, 185, 129, 0);
 }
 
 @layer base {
+  :root {
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   * {
     box-sizing: border-box;
     margin: 0;
@@ -57,6 +61,14 @@
     @apply transition-colors duration-700 bg-white text-gray-900 overflow-x-hidden;
   }
 
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
   :root {
     color-scheme: light;
   }
@@ -69,20 +81,75 @@
     @apply bg-[#0a0910] text-gray-100;
   }
 
-  /* Smooth transition for all themed elements */
-  *, *::before, *::after {
-    @apply transition-all duration-500;
-  }
+  * { transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease; }
 }
 
 @layer utilities {
-  /* Premium Glassmorphism */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-3 rounded-2xl bg-violet-600 px-8 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50;
+  }
+
+  .dark .btn-secondary {
+    @apply border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-6 py-3 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100;
+  }
+
+  .dark .btn-danger {
+    @apply border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20;
+  }
+
+  .app-input {
+    @apply w-full rounded-[2rem] border border-gray-200 bg-gray-50 px-8 py-5 text-sm font-semibold text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:border-violet-500 focus:bg-white;
+  }
+
+  .dark .app-input {
+    @apply border-white/10 bg-white/5 text-white placeholder:text-gray-500 focus:border-violet-500 focus:bg-white/10;
+  }
+
+  .app-label {
+    @apply mb-3 block px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500;
+  }
+
+  .dark .app-label {
+    @apply text-gray-400;
+  }
+
+  .app-chip {
+    @apply inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-violet-700;
+  }
+
+  .dark .app-chip {
+    @apply bg-violet-500/10 text-violet-300;
+  }
+
+  /* Simplified surfaces */
   .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+    @apply bg-white border border-gray-200;
+  }
+
+  .glass-card {
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    @apply bg-white border border-gray-200 shadow-sm;
+  }
+
+  .dark .glass-card {
+    @apply bg-[#111827] border-[#1f2937] shadow-none;
   }
 
   .glass-light {
     @apply bg-white/70 backdrop-blur-xl border border-white/20;
+  }
+
+  /* Background helper */
+  .mesh-gradient {
+    @apply bg-transparent;
   }
 
   /* Interactive Elements */
@@ -106,15 +173,9 @@
     @apply bg-violet-500/20 rounded-full hover:bg-violet-500/40 transition-colors;
   }
 
-  /* Background Ambient Glows */
+  /* Background Ambient Glows (disabled for clarity) */
   .ambient-glow {
-    position: fixed;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: -1;
-    filter: blur(80px);
+    display: none;
   }
 
   /* Animations */

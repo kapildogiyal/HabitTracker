@@ -150,6 +150,35 @@ const scheduleTaskReminders = async (prefs, now) => {
       }
     );
   }
+
+  if (!shouldRunForTime(prefs.wakeUpTime, now)) return;
+
+  const dueTodayTasks = await Task.find({
+    userId: prefs.userId,
+    dueDate: { $gte: startOfDay(now), $lte: endOfDay(now) },
+    completed: false,
+  });
+
+  if (!dueTodayTasks.length) return;
+
+  if (await hasNotificationToday(prefs.userId, 'today_task_summary', now)) return;
+
+  const message = await generatePersonalityMessage({
+    personality: prefs.motivationType,
+    type: 'today_task_summary',
+    context: {
+      taskCount: dueTodayTasks.length,
+      taskTitles: dueTodayTasks.slice(0, 3).map((task) => task.title),
+    },
+  });
+
+  await createNotification({
+    userId: prefs.userId,
+    title: `Today's Tasks (${dueTodayTasks.length})`,
+    message,
+    type: 'today_task_summary',
+    scheduledTime: now,
+  });
 };
 
 const scheduleInactiveUser = async (prefs, now) => {

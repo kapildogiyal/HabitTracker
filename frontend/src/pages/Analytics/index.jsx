@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
-import { analyticsAPI } from '../../api/endpoints';
+import { useGetSummaryQuery, useGetHeatmapQuery } from '../../store/api/analyticsApi';
 import useThemeStore from '../../store/themeStore';
 import Loader from '../../components/ui/Loader';
 import clsx from 'clsx';
-import { Flame, Trophy, CheckCircle2, Target, TrendingUp, Sparkles, Calendar } from 'lucide-react';
+import { Flame, Trophy, CheckCircle2, Target, TrendingUp, Sparkles, Zap } from 'lucide-react';
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
@@ -32,25 +32,16 @@ const CustomTooltip = ({ active, payload, label, isDark }) => {
 };
 
 export default function Analytics() {
-  const [summary, setSummary] = useState(null);
-  const [heatmap, setHeatmap] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [timeframe, setTimeframe] = useState('weekly');
   const { isDark } = useThemeStore();
+  
+  const monthKey = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  
+  const { data: summaryData, isLoading: isSummaryLoading } = useGetSummaryQuery();
+  const { data: heatmapData, isLoading: isHeatmapLoading } = useGetHeatmapQuery(monthKey);
 
-  useEffect(() => {
-    const monthKey = new Date().toISOString().slice(0, 7);
-    Promise.all([
-      analyticsAPI.getSummary(),
-      analyticsAPI.getHeatmap(monthKey),
-    ])
-      .then(([summaryRes, heatmapRes]) => {
-        setSummary(summaryRes.data.summary);
-        setHeatmap(heatmapRes.data);
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
-  }, []);
+  const summary = summaryData?.summary;
+  const isLoading = isSummaryLoading || isHeatmapLoading;
 
   if (isLoading) return <Loader />;
   if (!summary) return (
@@ -58,7 +49,7 @@ export default function Analytics() {
        <div className="w-20 h-20 rounded-[2.5rem] bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-300 dark:text-gray-700">
          <TrendingUp className="w-10 h-10" />
        </div>
-       <p className={clsx('text-xl font-black tracking-tight', isDark ? 'text-gray-500' : 'text-gray-400')}>Waiting for execution data...</p>
+       <p className={clsx('text-xl font-black tracking-tight', isDark ? 'text-gray-500' : 'text-gray-400')}>No progress data yet.</p>
     </div>
   );
 
@@ -101,8 +92,8 @@ export default function Analytics() {
     moodScore: entry.mood ? moodScale[entry.mood] : null,
   }));
 
-  const days = heatmap?.days || [];
-  const monthLabel = heatmap?.month || new Date().toISOString().slice(0, 7);
+  const days = heatmapData?.days || [];
+  const monthLabel = heatmapData?.month || monthKey;
   const startDayIndex = days.length ? new Date(days[0].date).getDay() : 0;
   const habitCells = Array.from({ length: startDayIndex }).map((_, i) => ({ key: `h-pad-${i}`, empty: true }));
   const taskCells = Array.from({ length: startDayIndex }).map((_, i) => ({ key: `t-pad-${i}`, empty: true }));
@@ -132,18 +123,18 @@ export default function Analytics() {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="max-w-7xl mx-auto space-y-12 pb-20">
+    <motion.div variants={container} initial="hidden" animate="show" className="max-w-7xl mx-auto space-y-8 sm:space-y-12 mesh-gradient p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-20 rounded-[2rem] sm:rounded-[4rem]">
       
       {/* Header & Controls */}
       <motion.div variants={item} className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-8 px-2">
         <div className="space-y-1">
-          <p className={clsx('text-[10px] font-black uppercase tracking-[0.4em]', isDark ? 'text-violet-400' : 'text-violet-600')}>Strategic Intel</p>
-          <h2 className={clsx('text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Intelligence</h2>
+          <p className={clsx('text-[10px] font-black uppercase tracking-[0.4em]', isDark ? 'text-violet-400' : 'text-violet-600')}>Your progress</p>
+          <h2 className={clsx('text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Analytics</h2>
         </div>
         
         <div className={clsx(
-          'flex gap-2 p-2 rounded-[2rem] w-fit shadow-sm', 
-          isDark ? 'bg-white/5 border border-white/5' : 'bg-gray-100 border border-gray-200'
+          'flex gap-2 p-2 rounded-[2rem] w-fit shadow-sm glass', 
+          isDark ? 'border-white/5' : 'bg-gray-100/50 border-gray-200'
         )}>
           {TIMEFRAMES.map(tf => (
             <button
@@ -163,14 +154,14 @@ export default function Analytics() {
       </motion.div>
 
       {/* Hero Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
         {[
-          { label: 'Habit Execution', value: `${stats.habitRate}%`, icon: <CheckCircle2 className="w-5 h-5" />, gradient: 'from-violet-500 via-indigo-600 to-violet-700', shadow: 'shadow-violet-500/20' },
-          { label: 'Task Throughput', value: `${stats.taskRate}%`, icon: <Target className="w-5 h-5" />, gradient: 'from-cyan-500 via-blue-600 to-cyan-700', shadow: 'shadow-cyan-500/20' },
-          { label: 'Total XP Velocity', value: stats.xp.toLocaleString(), icon: <Trophy className="w-5 h-5" />, gradient: 'from-amber-400 via-orange-500 to-amber-600', shadow: 'shadow-amber-500/20' },
-          { label: 'Peak Streak', value: `${summary.streaks.longest}d`, icon: <Flame className="w-5 h-5" />, gradient: 'from-rose-500 via-pink-600 to-rose-700', shadow: 'shadow-rose-500/20' },
+          { label: 'Habit completion', value: `${stats.habitRate}%`, icon: <CheckCircle2 className="w-5 h-5" />, gradient: 'from-violet-500 via-indigo-600 to-violet-700', shadow: 'shadow-violet-500/40' },
+          { label: 'Task completion', value: `${stats.taskRate}%`, icon: <Target className="w-5 h-5" />, gradient: 'from-cyan-500 via-blue-600 to-cyan-700', shadow: 'shadow-cyan-500/40' },
+          { label: 'Total XP', value: stats.xp.toLocaleString(), icon: <Trophy className="w-5 h-5" />, gradient: 'from-amber-400 via-orange-500 to-amber-600', shadow: 'shadow-amber-500/40' },
+          { label: 'Best streak', value: `${summary.streaks.longest}d`, icon: <Flame className="w-5 h-5" />, gradient: 'from-rose-500 via-pink-600 to-rose-700', shadow: 'shadow-rose-500/40' },
         ].map((s, i) => (
-          <motion.div key={i} variants={item} whileHover={{ scale: 1.05 }} className={clsx(`group relative overflow-hidden rounded-[3rem] p-8 text-white bg-gradient-to-br transition-all duration-500`, s.gradient, s.shadow)}>
+          <motion.div key={i} variants={item} whileHover={{ scale: 1.03, y: -3 }} className={clsx(`group relative overflow-hidden rounded-[1.8rem] sm:rounded-[3rem] p-5 sm:p-8 text-white bg-gradient-to-br transition-all duration-500 shadow-2xl`, s.gradient, s.shadow)}>
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-150 transition-transform duration-1000">
                <div className="w-48 h-48 rounded-full bg-white blur-3xl opacity-20" />
             </div>
@@ -179,7 +170,7 @@ export default function Analytics() {
                  {s.icon}
               </div>
               <div>
-                <p className="text-5xl font-black tracking-tighter mb-1 leading-none">{s.value}</p>
+                <p className="text-3xl sm:text-5xl font-black tracking-tighter mb-1 leading-none break-all">{s.value}</p>
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-60 mix-blend-overlay">{s.label}</p>
               </div>
             </div>
@@ -191,13 +182,14 @@ export default function Analytics() {
       <div className="grid lg:grid-cols-3 gap-8">
         
         {/* Core Progress Ring */}
-        <motion.div variants={item} className={clsx('rounded-[3.5rem] p-10 border flex flex-col items-center justify-center card-hover', isDark ? 'bg-[#151221] border-[#221d35]' : 'bg-white border-gray-100 shadow-premium')}>
-          <div className="w-full mb-12 text-center">
-            <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>System Efficacy</h3>
-            <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Aggregate Workflow Efficiency</p>
+        <motion.div variants={item} className={clsx('rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-10 flex flex-col items-center justify-center glass-card relative group', isDark ? '' : '')}>
+          <div className="absolute inset-0 bg-gradient-to-b from-violet-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-[3.5rem]" />
+          <div className="w-full mb-12 text-center relative z-10">
+            <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Overall Progress</h3>
+            <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Average habits and tasks</p>
           </div>
           
-          <div className="relative w-64 h-64 scale-110">
+          <div className="relative w-52 h-52 sm:w-64 sm:h-64 sm:scale-110 z-10">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={ringData} cx="50%" cy="50%" innerRadius={85} outerRadius={110} startAngle={90} endAngle={-270} dataKey="value" stroke="none" cornerRadius={12} paddingAngle={0}>
@@ -208,37 +200,35 @@ export default function Analytics() {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className={clsx('text-6xl font-black tracking-tighter', isDark ? 'text-white' : 'text-gray-900')}>{overallProgress}%</motion.span>
+              <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className={clsx('text-4xl sm:text-6xl font-black tracking-tighter', isDark ? 'text-white' : 'text-gray-900')}>{overallProgress}%</motion.span>
               <div className={clsx('mt-3 p-1 rounded-full', isDark ? 'bg-violet-500/10' : 'bg-violet-50')}>
-                <div className={clsx('px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest', isDark ? 'bg-violet-500 text-white' : 'bg-white text-violet-600 shadow-sm')}>OPTIMAL</div>
+                <div className={clsx('px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest', isDark ? 'bg-violet-500 text-white' : 'bg-white text-violet-600 shadow-sm')}>GOOD</div>
               </div>
             </div>
           </div>
         </motion.div>
 
         {/* Calendar Heatmap Section */}
-        <motion.div variants={item} className={clsx('rounded-[3.5rem] p-8 lg:p-12 border lg:col-span-2 card-hover relative overflow-hidden', isDark ? 'bg-[#151221] border-[#221d35]' : 'bg-white border-gray-100 shadow-premium')}>
-           <div className="absolute top-0 right-0 p-12 opacity-[0.02] -rotate-12 pointer-events-none">
-              <Calendar size={400} />
-           </div>
+        <motion.div variants={item} className={clsx('rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 lg:p-12 lg:col-span-2 glass-card relative group')}>
+           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.02] via-transparent to-violet-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity rounded-[3.5rem]" />
            
            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-12 relative z-10">
               <div>
-                <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Activity Matrix</h3>
-                <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Monthly Multi-Vector Analysis</p>
+                <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Monthly Activity</h3>
+                <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Habits and tasks by day</p>
               </div>
-              <div className={clsx('flex items-center gap-4 px-6 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest', isDark ? 'bg-white/5 border-white/5 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-600')}>
+              <div className={clsx('flex items-center gap-4 px-6 py-3 rounded-2xl border font-black text-xs uppercase tracking-widest glass', isDark ? 'border-white/5 text-gray-300' : 'bg-gray-50/50 border-gray-200 text-gray-600 shadow-sm')}>
                 <span className="opacity-40">Period</span> {monthLabel}
               </div>
            </div>
 
-           <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 relative z-10">
+           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 sm:gap-12 relative z-10">
               {/* Habits Heatmap */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-6 rounded-full bg-violet-500" />
-                      <span className={clsx('text-xs font-black uppercase tracking-[0.2em]', isDark ? 'text-violet-300' : 'text-violet-600')}>Habit Consistency</span>
+                      <div className="w-1.5 h-6 rounded-full bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)]" />
+                      <span className={clsx('text-xs font-black uppercase tracking-[0.2em]', isDark ? 'text-violet-300' : 'text-violet-600')}>Habit consistency</span>
                    </div>
                    <div className="flex items-center gap-1 opacity-60">
                       <span className="text-[10px] font-black mr-2">LOW</span>
@@ -258,7 +248,7 @@ export default function Analytics() {
                       {days.map(day => (
                         <motion.div
                           key={`h-${day.date}`}
-                          whileHover={{ scale: 1.15, zIndex: 10 }}
+                          whileHover={{ scale: 1.25, zIndex: 10, rotate: 5 }}
                           title={`${day.date}: ${day.habitCount} Habits`}
                           className={clsx(
                             'aspect-square rounded-xl border transition-all duration-300 cursor-help',
@@ -274,8 +264,8 @@ export default function Analytics() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-6 rounded-full bg-cyan-400" />
-                      <span className={clsx('text-xs font-black uppercase tracking-[0.2em]', isDark ? 'text-cyan-300' : 'text-cyan-600')}>Sprints Throughput</span>
+                      <div className="w-1.5 h-6 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+                      <span className={clsx('text-xs font-black uppercase tracking-[0.2em]', isDark ? 'text-cyan-300' : 'text-cyan-600')}>Task completion</span>
                    </div>
                    <div className="flex items-center gap-1 opacity-60">
                       <span className="text-[10px] font-black mr-2">LOW</span>
@@ -295,7 +285,7 @@ export default function Analytics() {
                       {days.map(day => (
                         <motion.div
                           key={`t-${day.date}`}
-                          whileHover={{ scale: 1.15, zIndex: 10 }}
+                          whileHover={{ scale: 1.25, zIndex: 10, rotate: -5 }}
                           title={`${day.date}: ${day.taskCount} Tasks`}
                           className={clsx(
                             'aspect-square rounded-xl border transition-all duration-300 cursor-help',
@@ -310,48 +300,49 @@ export default function Analytics() {
         </motion.div>
 
         {/* Comparative Analysis */}
-        <motion.div variants={item} className={clsx('rounded-[3.5rem] p-8 lg:p-12 border lg:col-span-3 card-hover', isDark ? 'bg-[#151221] border-[#221d35]' : 'bg-white border-gray-100 shadow-premium')}>
-          <div className="flex items-center justify-between mb-12 px-2 text-center lg:text-left">
+        <motion.div variants={item} className={clsx('rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 lg:p-12 lg:col-span-3 glass-card relative group overflow-hidden')}>
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-500/[0.02] via-transparent to-cyan-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex items-center justify-between mb-12 px-2 text-center lg:text-left relative z-10">
             <div>
-              <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Comparative Analysis</h3>
-              <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Multi-Vector Performance Ratios</p>
+              <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Habits vs Tasks</h3>
+              <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Completion rate over time</p>
             </div>
             <div className="hidden sm:block">
-               <div className="p-4 rounded-3xl bg-violet-500/10 text-violet-500"><Sparkles className="w-6 h-6 animate-pulse" /></div>
+               <div className="p-4 rounded-3xl bg-violet-500/10 text-violet-500 shadow-glow-violet"><Zap className="w-6 h-6 animate-pulse" /></div>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={360}>
-            <BarChart data={timeframe === 'daily' ? summary.weekly : chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={12}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-              <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} dy={20} />
-              <YAxis tick={{ fill: axisColor, fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} domain={[0, 100]} dx={-10} />
-              <Tooltip content={<CustomTooltip isDark={isDark} />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
-              <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 40, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em' }} />
-              <Bar dataKey="habits" name="Habit Rate" fill="#8b5cf6" radius={[8, 8, 0, 0]} barSize={24} />
-              <Bar dataKey="tasks" name="Task Rate" fill="#22d3ee" radius={[8, 8, 0, 0]} barSize={24} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="relative z-10 h-[280px] sm:h-[360px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={timeframe === 'daily' ? summary.weekly : chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barGap={12}>
+                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} dy={20} />
+                <YAxis tick={{ fill: axisColor, fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} domain={[0, 100]} dx={-10} />
+                <Tooltip content={<CustomTooltip isDark={isDark} />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }} />
+                <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 40, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em' }} />
+                <Bar dataKey="habits" name="Habit Rate" fill="#8b5cf6" radius={[8, 8, 0, 0]} barSize={24} />
+                <Bar dataKey="tasks" name="Task Rate" fill="#22d3ee" radius={[8, 8, 0, 0]} barSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </motion.div>
 
         {/* Mood vs Productivity */}
-        <motion.div variants={item} className={clsx('rounded-[3.5rem] p-8 lg:p-12 border lg:col-span-3 card-hover relative overflow-hidden', isDark ? 'bg-[#151221] border-[#221d35]' : 'bg-white border-gray-100 shadow-premium')}>
-          <div className="absolute top-0 left-0 p-12 opacity-[0.02] pointer-events-none">
-             <Sparkles size={400} />
-          </div>
+        <motion.div variants={item} className={clsx('rounded-[2rem] sm:rounded-[3.5rem] p-5 sm:p-8 lg:p-12 lg:col-span-3 glass-card relative overflow-hidden group')}>
+          <div className="absolute inset-0 bg-gradient-to-t from-cyan-500/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-12 relative z-10">
             <div>
               <h3 className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>Mood vs Productivity</h3>
-              <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Cognitive State & Output Correlation (Last 7 Days)</p>
+              <p className={clsx('text-[10px] font-black uppercase tracking-widest mt-2', isDark ? 'text-gray-500' : 'text-gray-400')}>Mood and completion in the last 7 days</p>
             </div>
             <div className="flex items-center gap-2">
-               <div className="w-3 h-3 rounded-full bg-[#22d3ee] shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
-               <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Real-time Sync</span>
+               <div className="w-3 h-3 rounded-full bg-[#22d3ee] shadow-[0_0_10px_rgba(34,211,238,0.5)] animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Live data</span>
             </div>
           </div>
           
-          <div className="relative z-10">
-            <ResponsiveContainer width="100%" height={360}>
+          <div className="relative z-10 h-[280px] sm:h-[360px]">
+            <ResponsiveContainer width="100%" height="100%">
               <LineChart data={moodTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} dy={20} />
@@ -373,8 +364,8 @@ export default function Analytics() {
                 <YAxis yAxisId="right" orientation="right" tick={{ fill: axisColor, fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} domain={[0, 100]} dx={10} />
                 <Tooltip content={<CustomTooltip isDark={isDark} />} cursor={{ stroke: '#22d3ee', strokeWidth: 2, strokeDasharray: '5 5' }} />
                 <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: 40, fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em' }} />
-                <Line yAxisId="left" type="monotone" dataKey="moodScore" name="Mood State" stroke="#22d3ee" strokeWidth={5} dot={{ r: 6, fill: '#22d3ee', strokeWidth: 0 }} activeDot={{ r: 8, strokeWidth: 0 }} connectNulls shadow="shadow-lg shadow-cyan-500/20" />
-                <Line yAxisId="right" type="monotone" dataKey="productivity" name="Productivity" stroke="#8b5cf6" strokeWidth={5} dot={{ r: 6, fill: '#8b5cf6', strokeWidth: 0 }} activeDot={{ r: 8, strokeWidth: 0 }} shadow="shadow-lg shadow-violet-500/20" />
+                <Line yAxisId="left" type="monotone" dataKey="moodScore" name="Mood State" stroke="#22d3ee" strokeWidth={5} dot={{ r: 6, fill: '#22d3ee', strokeWidth: 0 }} activeDot={{ r: 8, strokeWidth: 0, fill: '#22d3ee' }} connectNulls shadow="shadow-lg shadow-cyan-500/20" />
+                <Line yAxisId="right" type="monotone" dataKey="productivity" name="Productivity" stroke="#8b5cf6" strokeWidth={5} dot={{ r: 6, fill: '#8b5cf6', strokeWidth: 0 }} activeDot={{ r: 8, strokeWidth: 0, fill: '#8b5cf6' }} shadow="shadow-lg shadow-violet-500/20" />
               </LineChart>
             </ResponsiveContainer>
           </div>

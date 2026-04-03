@@ -8,6 +8,7 @@ const FALLBACK_MESSAGES = {
     morning_motivation: 'Rise and grind. Your goals miss you already.',
     habit_reminder: 'That habit is waving at you from the sidelines.',
     task_reminder: 'Your task is starting soon. No hiding.',
+    today_task_summary: 'Tasks are due today. Future you is already judging. Start one now.',
     inactive_user: 'We saved your seat. Come back and crush it.',
     streak_protection: 'Streak in danger. Time to swoop in.',
     completion_celebration: 'All tasks done. Victory dance optional.',
@@ -18,7 +19,8 @@ const FALLBACK_MESSAGES = {
     morning_motivation: 'Wake up. Start now.',
     habit_reminder: 'Do the habit. No excuses.',
     task_reminder: 'Task starts soon. Be ready.',
-    inactive_user: 'You have been inactive. Return and execute.',
+    today_task_summary: 'Tasks are due today. Review them and start immediately.',
+    inactive_user: 'You have been inactive. Come back and start again.',
     streak_protection: 'Streak at risk. Complete a habit.',
     completion_celebration: 'All tasks complete. Stay consistent.',
     weekly_report: 'Weekly report is ready. Review it.',
@@ -28,6 +30,7 @@ const FALLBACK_MESSAGES = {
     morning_motivation: 'New day, new progress. Let us go.',
     habit_reminder: 'Small steps now create big wins later.',
     task_reminder: 'You are ready for this. Focus and finish.',
+    today_task_summary: 'You have tasks due today. Pick one priority and make steady progress.',
     inactive_user: 'You can restart today. Your goals still believe in you.',
     streak_protection: 'Protect your streak. You are so close.',
     completion_celebration: 'Everything is done. Celebrate your momentum.',
@@ -38,6 +41,7 @@ const FALLBACK_MESSAGES = {
     morning_motivation: 'Good morning! Let us make today feel great.',
     habit_reminder: 'Friendly reminder to wrap up your habit.',
     task_reminder: 'Your task starts soon. I am cheering for you.',
+    today_task_summary: 'Quick reminder: some tasks are due today. Let us handle them calmly, one by one.',
     inactive_user: 'We missed you. Ready to jump back in?',
     streak_protection: 'Your streak is close. One habit to save it.',
     completion_celebration: 'Nice work finishing everything today!',
@@ -74,10 +78,11 @@ export const generatePersonalityMessage = async ({ personality, type, context })
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const prompt = `You are a ${personalityKey} AI coach for a habit tracker app. 
+const prompt = `You are a ${personalityKey} AI coach for a habit tracker app. 
 Write a short push notification message (max 18 words) for the notification type: ${type}.
 Context: ${JSON.stringify(context)}
 Tone rules:
+- Use simple, everyday English that most users can understand.
 - Funny: playful, light, slightly witty.
 - Strict: direct, no fluff.
 - Motivational: uplifting and encouraging.

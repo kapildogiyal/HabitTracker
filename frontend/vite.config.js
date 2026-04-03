@@ -18,9 +18,15 @@ export default defineConfig({
         name: 'HabitTrack - Level Up Your Life',
         short_name: 'HabitTrack',
         description: 'Gamified productivity and habit tracking with AI motivation.',
+        id: '/',
+        scope: '/',
+        start_url: '/',
+        display_override: ['standalone', 'minimal-ui'],
         theme_color: '#8b5cf6',
         background_color: '#0f0d1a',
         display: 'standalone',
+        orientation: 'portrait',
+        categories: ['productivity', 'lifestyle'],
         icons: [
           {
             src: 'icon-192.png',
@@ -38,13 +44,27 @@ export default defineConfig({
             type: 'image/png',
             purpose: 'any maskable'
           }
-        ]
+        ],
+        shortcuts: [
+          {
+            name: 'Dashboard',
+            short_name: 'Dashboard',
+            url: '/dashboard',
+            icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+          {
+            name: 'Tasks',
+            short_name: 'Tasks',
+            url: '/tasks',
+            icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }],
+          },
+        ],
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module'
       }
     })
@@ -68,4 +88,3 @@ export default defineConfig({
     }
   }
 })
-

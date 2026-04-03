@@ -1,52 +1,72 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
 import { X } from 'lucide-react';
-import useThemeStore from '../../store/themeStore';
 import clsx from 'clsx';
+import useThemeStore from '../../store/themeStore';
 
 export default function Modal({ isOpen, onClose, title, children }) {
   const { isDark } = useThemeStore();
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className={clsx(
-              'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-md max-h-[90vh] rounded-[2.5rem] shadow-2xl z-50 p-6 sm:p-10 flex flex-col',
-              isDark ? 'bg-[#151221] border border-[#2d2545]' : 'bg-white border border-gray-100'
-            )}
-          >
-            <div className="flex items-center justify-between mb-8 shrink-0">
-              <h3 className={clsx('text-xl sm:text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}>
-                {title}
-              </h3>
-              <button
-                onClick={onClose}
-                className={clsx(
-                  'w-10 h-10 rounded-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95',
-                  isDark ? 'text-gray-400 hover:text-white hover:bg-white/10 shadow-lg shadow-black/20' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100 shadow-sm'
-                )}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto pr-2 scrollbar-custom">
-               {children}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95 translate-y-4"
+              enterTo="opacity-100 scale-100 translate-y-0"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100 translate-y-0"
+              leaveTo="opacity-0 scale-95 translate-y-4"
+            >
+              <Dialog.Panel className={clsx(
+                'w-full max-w-lg transform overflow-hidden rounded-[2.5rem] p-8 text-left align-middle shadow-2xl transition-all border',
+                isDark ? 'bg-[#1a1628] border-white/5 shadow-black/50' : 'bg-white border-gray-100 shadow-xl'
+              )}>
+                <div className="flex items-center justify-between mb-6">
+                  {title && (
+                    <Dialog.Title
+                      as="h3"
+                      className={clsx('text-2xl font-black tracking-tight', isDark ? 'text-white' : 'text-gray-900')}
+                    >
+                      {title}
+                    </Dialog.Title>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Close modal"
+                    onClick={onClose}
+                    className={clsx(
+                      'p-2 rounded-xl transition-colors ml-auto',
+                      isDark ? 'text-gray-400 hover:bg-white/5 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-900'
+                    )}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="relative">
+                  {children}
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
   );
 }
