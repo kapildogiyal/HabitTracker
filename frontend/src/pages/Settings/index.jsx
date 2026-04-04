@@ -4,7 +4,7 @@ import { Save, User as UserIcon, Bell, Palette, Shield, Zap, Globe, LogOut } fro
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { useGetMeQuery, useUpdateProfileMutation } from '../../store/api/authApi';
-import { useSubscribeNotificationsMutation, useUnsubscribeNotificationsMutation } from '../../store/api/notificationApi';
+import { useSubscribeNotificationsMutation, useUnsubscribeNotificationsMutation, useLazyGetVapidPublicKeyQuery } from '../../store/api/notificationApi';
 import { logout } from '../../store/slices/authSlice';
 import useThemeStore from '../../store/themeStore';
 import usePWAStore from '../../store/pwaStore';
@@ -19,6 +19,7 @@ export default function Settings() {
   const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
   const [subscribe] = useSubscribeNotificationsMutation();
   const [unsubscribe] = useUnsubscribeNotificationsMutation();
+  const [getVapidPublicKey] = useLazyGetVapidPublicKeyQuery();
   const { isDark, toggle } = useThemeStore();
   const { isInstallable, deferredPrompt, clearDeferredPrompt } = usePWAStore();
   
@@ -115,7 +116,19 @@ export default function Settings() {
         return;
       }
 
-      const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      let publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      
+      if (!publicKey) {
+        try {
+          const res = await getVapidPublicKey().unwrap();
+          if (res.success && res.publicKey) {
+            publicKey = res.publicKey;
+          }
+        } catch (err) {
+          console.error("Failed to fetch VAPID key", err);
+        }
+      }
+
       if (!publicKey) {
         toast.error('Notification key is missing.');
         return;

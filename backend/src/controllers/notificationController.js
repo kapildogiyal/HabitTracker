@@ -42,3 +42,12 @@ export const removeSubscription = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Get VAPID public key
+// @route   GET /api/notifications/vapid-public-key
+export const getPublicKey = (req, res) => {
+  res.status(200).json({ 
+    success: true, 
+    publicKey: process.env.VAPID_PUBLIC_KEY || process.env.VITE_VAPID_PUBLIC_KEY 
+  });
+};

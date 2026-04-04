@@ -16,10 +16,14 @@ export const notificationApi = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
+    getVapidPublicKey: builder.query({
+      query: () => '/notifications/vapid-public-key',
+    }),
   }),
 });
 
 export const {
   useSubscribeNotificationsMutation,
   useUnsubscribeNotificationsMutation,
+  useLazyGetVapidPublicKeyQuery,
 } = notificationApi;

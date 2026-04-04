@@ -1,11 +1,12 @@
 import express from 'express';
-import { saveSubscription, removeSubscription } from '../controllers/notificationController.js';
+import { saveSubscription, removeSubscription, getPublicKey } from '../controllers/notificationController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.use(protect);
 
+router.get('/vapid-public-key', getPublicKey);
 router.post('/subscribe', saveSubscription);
 router.post('/unsubscribe', removeSubscription);
 router.post('/test-push', async (req, res, next) => {
