@@ -7,6 +7,7 @@ import { useGetMeQuery, useUpdateProfileMutation } from '../../store/api/authApi
 import { useSubscribeNotificationsMutation, useUnsubscribeNotificationsMutation } from '../../store/api/notificationApi';
 import { logout } from '../../store/slices/authSlice';
 import useThemeStore from '../../store/themeStore';
+import usePWAStore from '../../store/pwaStore';
 import Loader from '../../components/ui/Loader';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -19,6 +20,7 @@ export default function Settings() {
   const [subscribe] = useSubscribeNotificationsMutation();
   const [unsubscribe] = useUnsubscribeNotificationsMutation();
   const { isDark, toggle } = useThemeStore();
+  const { isInstallable, deferredPrompt, clearDeferredPrompt } = usePWAStore();
   
   const [form, setForm] = useState({
     username: null,
@@ -40,9 +42,15 @@ export default function Settings() {
   useEffect(() => {
     const checkSubscription = async () => {
       if (!('serviceWorker' in navigator)) return;
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      setIsSubscribed(Boolean(subscription));
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+          setIsSubscribed(Boolean(subscription));
+        }
+      } catch (err) {
+        console.error('Failed to check push subscription', err);
+      }
     };
 
     checkSubscription();
@@ -77,7 +85,26 @@ export default function Settings() {
           return;
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      let registration = await navigator.serviceWorker.getRegistration();
+      
+      if (!registration) {
+        try {
+          // Manual fallback for development mode if virtual:pwa-register failed
+          registration = await navigator.serviceWorker.register(
+            import.meta.env.DEV ? '/dev-sw.js?dev-sw' : '/sw.js', 
+            { type: import.meta.env.DEV ? 'module' : 'classic' }
+          );
+          registration = await navigator.serviceWorker.ready;
+        } catch (e) {
+          console.error("SW Registration failed:", e);
+        }
+      }
+
+      if (!registration) {
+        toast.error('Error: Service Worker could not be registered. Check console.');
+        return;
+      }
+
       const existing = await registration.pushManager.getSubscription();
 
       if (existing) {
@@ -110,6 +137,15 @@ export default function Settings() {
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
+  };
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      clearDeferredPrompt();
+    }
   };
 
   if (isLoadingUser) return <Loader />;
@@ -230,17 +266,19 @@ export default function Settings() {
                 </section>
 
                 {/* Intelligence Port */}
-                <section className="space-y-6">
-                   <div className="p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-4 sm:gap-6">
-                      <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                         <Globe className="w-7 h-7 text-white" />
+                {isInstallable && (
+                   <section className="space-y-6">
+                      <div onClick={handleInstall} className="p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-4 sm:gap-6 cursor-pointer hover:bg-indigo-500/20 transition-colors">
+                         <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <Globe className="w-7 h-7 text-white" />
+                         </div>
+                         <div>
+                            <p className={clsx('text-sm font-black', isDark ? 'text-white' : 'text-gray-900')}>Install this app</p>
+                            <p className="text-[10px] opacity-50 font-bold">Add HabitTrack to your home screen.</p>
+                         </div>
                       </div>
-                      <div>
-                         <p className={clsx('text-sm font-black', isDark ? 'text-white' : 'text-gray-900')}>Install this app</p>
-                         <p className="text-[10px] opacity-50 font-bold">Add HabitTrack to your home screen.</p>
-                      </div>
-                   </div>
-                </section>
+                   </section>
+                )}
              </div>
           </div>
 

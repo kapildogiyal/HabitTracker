@@ -10,7 +10,7 @@ export default function Layout({ children }) {
 
   return (
     <div className={clsx(
-      'min-h-screen flex flex-col lg:flex-row transition-colors duration-700 overflow-x-clip',
+      'min-h-[100dvh] w-full flex flex-col lg:flex-row transition-colors duration-700 overflow-x-hidden',
       isDark ? 'bg-[#0b1220]' : 'bg-gray-50'
     )}>
       {/* Sidebar for Desktop */}

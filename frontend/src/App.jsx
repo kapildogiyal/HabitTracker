@@ -11,6 +11,7 @@ import {
 } from './store/slices/authSlice';
 import { useGetMeQuery, useGetOnboardingStatusQuery } from './store/api/authApi';
 import useThemeStore from './store/themeStore';
+import usePWAStore from './store/pwaStore';
 
 // Layout
 import Layout from './components/layout/Layout';
@@ -37,7 +38,7 @@ const ProtectedRoute = ({ children }) => {
   
   if (!onboardingChecked) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-[#0a0910]' : 'bg-gray-50'}`}>
+      <div className={`min-h-[100dvh] flex items-center justify-center ${isDark ? 'bg-[#0a0910]' : 'bg-gray-50'}`}>
         <Loader />
       </div>
     );
@@ -61,6 +62,7 @@ function App() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const { apply, isDark } = useThemeStore();
+  const setDeferredPrompt = usePWAStore((state) => state.setDeferredPrompt);
 
   // RTK Query hooks for initial data sync
   const { isError: meError, isLoading: meLoading } = useGetMeQuery(undefined, {
@@ -74,6 +76,19 @@ function App() {
   useEffect(() => {
     apply(); // Apply dark mode class to HTML
   }, [apply]);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, [setDeferredPrompt]);
 
   useEffect(() => {
     if (onboardingData) {

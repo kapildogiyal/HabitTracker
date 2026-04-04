@@ -7,7 +7,13 @@ import { ExpirationPlugin } from 'workbox-expiration';
 precacheAndRoute(self.__WB_MANIFEST || []);
 cleanupOutdatedCaches();
 
-const APP_SHELL_HANDLER = createHandlerBoundToURL('/index.html');
+let APP_SHELL_HANDLER;
+try {
+  APP_SHELL_HANDLER = createHandlerBoundToURL('/index.html');
+} catch (err) {
+  // If not precached (e.g. in dev mode), fallback to a basic fetch
+  APP_SHELL_HANDLER = async ({ request }) => await fetch(request);
+}
 
 registerRoute(
   new NavigationRoute(APP_SHELL_HANDLER, {

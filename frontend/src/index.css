@@ -58,7 +58,7 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    @apply transition-colors duration-700 bg-white text-gray-900 overflow-x-hidden;
+    @apply transition-colors duration-700 bg-white text-gray-900 overflow-x-hidden w-full;
   }
 
   img,
