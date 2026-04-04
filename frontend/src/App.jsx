@@ -9,7 +9,7 @@ import {
   setOnboarding,
   logout,
 } from './store/slices/authSlice';
-import { useGetMeQuery, useGetOnboardingStatusQuery } from './store/api/authApi';
+import { useGetMeQuery, useGetOnboardingStatusQuery, useUpdateProfileMutation } from './store/api/authApi';
 import useThemeStore from './store/themeStore';
 import usePWAStore from './store/pwaStore';
 
@@ -72,6 +72,17 @@ function App() {
   const { data: onboardingData, isLoading: onboardingLoading } = useGetOnboardingStatusQuery(undefined, {
     skip: !isAuthenticated,
   });
+  
+  const [updateProfile] = useUpdateProfileMutation();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Quietly sync timezone in the background upon opening the app
+      try {
+        updateProfile({ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      } catch (err) {}
+    }
+  }, [isAuthenticated, updateProfile]);
 
   useEffect(() => {
     apply(); // Apply dark mode class to HTML

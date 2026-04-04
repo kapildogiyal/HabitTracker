@@ -11,9 +11,9 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, username } = req.body;
+    const { name, email, password, username, timezone } = req.body;
     const derivedUsername = username || email?.split('@')[0];
-    const user = await User.create({ name, email, password, username: derivedUsername, lastActiveAt: new Date() });
+    const user = await User.create({ name, email, password, username: derivedUsername, timezone: timezone || 'UTC', lastActiveAt: new Date() });
     const token = generateToken(user._id);
     res.status(201).json({
       success: true,
@@ -41,6 +41,9 @@ export const login = async (req, res, next) => {
     const activityUpdate = { lastActiveAt: new Date() };
     if (!user.username && username) {
       activityUpdate.username = username;
+    }
+    if (req.body.timezone) {
+      activityUpdate.timezone = req.body.timezone;
     }
 
     User.updateOne({ _id: user._id }, { $set: activityUpdate }).catch((error) => {
@@ -73,11 +76,12 @@ export const getMe = async (req, res, next) => {
 // @route   PUT /api/auth/profile
 export const updateProfile = async (req, res, next) => {
   try {
-    const { name, avatar, username } = req.body;
+    const { name, avatar, username, timezone } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (avatar !== undefined) updates.avatar = avatar;
     if (username !== undefined) updates.username = username;
+    if (timezone !== undefined) updates.timezone = timezone;
     const updated = await User.findByIdAndUpdate(
       req.user.id,
       updates,

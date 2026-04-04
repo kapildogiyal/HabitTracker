@@ -4,6 +4,14 @@ export const toTimeString = (date) => {
   return `${hours}:${minutes}`;
 };
 
+export const getUserTimeStr = (date, timezone = 'UTC') => {
+  try {
+    return date.toLocaleString('en-US', { timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit' }).replace('24:', '00:');
+  } catch (e) {
+    return toTimeString(date);
+  }
+};
+
 export const combineDateAndTime = (date, timeString) => {
   if (!timeString) return null;
   const [hours, minutes] = timeString.split(':').map((value) => Number(value));

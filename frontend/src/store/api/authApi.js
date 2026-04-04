@@ -6,14 +6,20 @@ export const authApi = apiSlice.injectEndpoints({
       query: (credentials) => ({
         url: '/auth/login',
         method: 'POST',
-        body: credentials,
+        body: { 
+          ...credentials, 
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone 
+        },
       }),
     }),
     register: builder.mutation({
       query: (userData) => ({
         url: '/auth/register',
         method: 'POST',
-        body: userData,
+        body: { 
+          ...userData, 
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone 
+        },
       }),
     }),
     getMe: builder.query({
@@ -24,7 +30,10 @@ export const authApi = apiSlice.injectEndpoints({
       query: (data) => ({
         url: '/auth/profile',
         method: 'PUT',
-        body: data,
+        body: { 
+          ...data, 
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone 
+        },
       }),
       invalidatesTags: ['User'],
     }),
